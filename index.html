@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BrokerScan — Data Broker Exposure Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:   #0D1B2A;
+      --panel:  #132236;
+      --border: #1E3450;
+      --slate:  #3D5A73;
+      --muted:  #6B8BA4;
+      --off:    #E8EDF2;
+      --amber:  #F5A623;
+      --green:  #2ECC71;
+      --red:    #E74C3C;
+      --mono:   'JetBrains Mono', monospace;
+      --sans:   'Inter', sans-serif;
+    }
+
+    body {
+      background: var(--navy);
+      color: var(--off);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo-mark {
+      width: 32px; height: 32px;
+      border: 2px solid var(--amber);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--amber);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-family: var(--mono);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--off);
+    }
+    header span {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-left: 4px;
+    }
+    .header-right {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── Layout ── */
+    .app {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 0;
+      flex: 1;
+    }
+
+    /* ── Left Panel ── */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .sidebar-section label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+    .sidebar-section input {
+      width: 100%;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: var(--off);
+      font-family: var(--mono);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .sidebar-section input:focus { border-color: var(--slate); }
+    .sidebar-section input::placeholder { color: var(--slate); }
+
+    .input-group { display: flex; flex-direction: column; gap: 10px; }
+
+    .scan-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--amber);
+      color: var(--navy);
+      border: none;
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .scan-btn:hover { opacity: 0.88; }
+    .scan-btn:active { transform: scale(0.98); }
+    .scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Progress */
+    .progress-block { display: none; }
+    .progress-block.active { display: block; }
+    .progress-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .progress-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--amber);
+      width: 0%;
+      transition: width 0.3s ease;
+      border-radius: 2px;
+    }
+    .progress-log {
+      margin-top: 12px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      height: 140px;
+      overflow-y: auto;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .log-found  { color: var(--amber); }
+    .log-clean  { color: var(--green); }
+    .log-error  { color: var(--red); }
+    .log-info   { color: var(--muted); }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .stat-cell {
+      background: var(--panel);
+      padding: 14px 10px;
+      text-align: center;
+    }
+    .stat-num {
+      font-family: var(--mono);
+      font-size: 22px;
+      font-weight: 600;
+      display: block;
+    }
+    .stat-num.found { color: var(--amber); }
+    .stat-num.clean { color: var(--green); }
+    .stat-num.total { color: var(--off); }
+    .stat-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-top: 3px;
+      display: block;
+    }
+
+    /* ── Right Panel ── */
+    .main {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow: hidden;
+    }
+    .main-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .main-header h2 {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-family: var(--mono);
+    }
+    .filter-row {
+      display: flex;
+      gap: 8px;
+    }
+    .filter-btn {
+      padding: 5px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn.active, .filter-btn:hover {
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+    .export-btn {
+      padding: 5px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-left: 8px;
+    }
+    .export-btn:hover { border-color: var(--green); color: var(--green); }
+
+    /* Table */
+    .table-wrap {
+      overflow-y: auto;
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      background: var(--panel);
+      padding: 10px 16px;
+      text-align: left;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(61, 90, 115, 0.15); }
+    tbody td {
+      padding: 11px 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      vertical-align: middle;
+    }
+    .td-broker { color: var(--off); font-weight: 500; }
+    .td-category { color: var(--muted); font-size: 11px; }
+    .td-status {}
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-found   { background: rgba(245,166,35,0.12); color: var(--amber); border: 1px solid rgba(245,166,35,0.3); }
+    .badge-clean   { background: rgba(46,204,113,0.10); color: var(--green); border: 1px solid rgba(46,204,113,0.25); }
+    .badge-pending { background: rgba(107,139,164,0.12); color: var(--muted); border: 1px solid var(--border); }
+    .badge-error   { background: rgba(231,76,60,0.10);  color: var(--red);   border: 1px solid rgba(231,76,60,0.25); }
+    .badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+    .td-optout a {
+      color: var(--slate);
+      text-decoration: none;
+      font-size: 11px;
+      transition: color 0.15s;
+    }
+    .td-optout a:hover { color: var(--amber); }
+    .td-checked { color: var(--muted); font-size: 11px; }
+
+    /* Empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 300px;
+      gap: 12px;
+      color: var(--muted);
+    }
+    .empty-state .scan-icon {
+      font-size: 36px;
+      opacity: 0.3;
+    }
+    .empty-state p {
+      font-family: var(--mono);
+      font-size: 12px;
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    /* Disclaimer */
+    .disclaimer {
+      font-size: 11px;
+      color: var(--slate);
+      font-family: var(--mono);
+      line-height: 1.6;
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+      margin-top: auto;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+      .main { padding: 20px 16px; }
+      header { padding: 14px 16px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .progress-fill { transition: none; }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--navy); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">BS</div>
+  <h1>BrokerScan <span>v1.0</span></h1>
+  <div class="header-right" id="clock">--:--:--</div>
+</header>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <label>Identity Profile</label>
+      <div class="input-group">
+        <input type="text"  id="inp-name"   placeholder="Full name" autocomplete="off" />
+        <input type="text"  id="inp-city"   placeholder="City, State" autocomplete="off" />
+        <input type="email" id="inp-email"  placeholder="Email address" autocomplete="off" />
+        <input type="tel"   id="inp-phone"  placeholder="Phone number" autocomplete="off" />
+      </div>
+    </div>
+
+    <button class="scan-btn" id="scan-btn" onclick="startScan()">▶ Run Scan</button>
+
+    <div class="progress-block" id="progress-block">
+      <div class="progress-label">
+        <span id="prog-label">Scanning...</span>
+        <span id="prog-pct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="prog-bar"></div></div>
+      <div class="progress-log" id="prog-log"></div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-cell">
+        <span class="stat-num total" id="stat-total">0</span>
+        <span class="stat-label">Brokers</span>
+      </div>
+      <div class="stat-cell">
+        <span class="stat-num found" id="stat-found">0</span>
+        <span class="stat-label">Exposed</span>
+      </div>
+      <div class="stat-cell">
+        <span class="stat-num clean" id="stat-clean">0</span>
+        <span class="stat-label">Clean</span>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      This tool checks known opt-out pages and simulates detection.<br>
+      Use the companion Python script for real scraping.<br>
+      Re-scan every 90 days — brokers re-list removed data.
+    </div>
+
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="main-header">
+      <h2>Broker Results</h2>
+      <div style="display:flex;align-items:center;gap:0">
+        <div class="filter-row">
+          <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+          <button class="filter-btn" onclick="setFilter('FOUND', this)">Exposed</button>
+          <button class="filter-btn" onclick="setFilter('CLEAN', this)">Clean</button>
+        </div>
+        <button class="export-btn" onclick="exportCSV()">↓ Export CSV</button>
+      </div>
+    </div>
+
+    <div class="table-wrap" id="table-wrap">
+      <div class="empty-state" id="empty-state">
+        <div class="scan-icon">⬡</div>
+        <p>Enter your identity profile<br>and run a scan to check exposure<br>across 30 data brokers.</p>
+      </div>
+      <table id="results-table" style="display:none">
+        <thead>
+          <tr>
+            <th>Broker</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Opt-Out URL</th>
+            <th>Last Checked</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </main>
+
+</div>
+
+<script>
+// ── Broker database ──────────────────────────────────────────────────────────
+const BROKERS = [
+  { name: "ZoomInfo",       category: "B2B / Recruiter",   optout: "https://www.zoominfo.com/about/privacy/privacy-request", priority: "HIGH" },
+  { name: "Spokeo",         category: "People Search",     optout: "https://www.spokeo.com/optout", priority: "HIGH" },
+  { name: "BeenVerified",   category: "People Search",     optout: "https://www.beenverified.com/app/optout/search", priority: "HIGH" },
+  { name: "Whitepages",     category: "People Search",     optout: "https://www.whitepages.com/suppression-requests", priority: "HIGH" },
+  { name: "Intelius",       category: "People Search",     optout: "https://www.intelius.com/opt-out", priority: "HIGH" },
+  { name: "PeopleFinder",   category: "People Search",     optout: "https://www.peoplefinders.com/opt-out", priority: "HIGH" },
+  { name: "MyLife",         category: "Reputation",        optout: "https://www.mylife.com/privacy-policy/index.pubview", priority: "HIGH" },
+  { name: "Radaris",        category: "People Search",     optout: "https://radaris.com/page/how-to-remove", priority: "HIGH" },
+  { name: "InstantCheckmate", category: "Background",      optout: "https://www.instantcheckmate.com/opt-out/", priority: "HIGH" },
+  { name: "TruthFinder",    category: "Background",        optout: "https://www.truthfinder.com/opt-out/", priority: "HIGH" },
+  { name: "Acxiom",         category: "Data Aggregator",   optout: "https://www.acxiom.com/optout/", priority: "HIGH" },
+  { name: "LexisNexis",     category: "Data Aggregator",   optout: "https://optout.lexisnexis.com/", priority: "HIGH" },
+  { name: "Experian",       category: "Credit / Marketing",optout: "https://www.experian.com/privacy/opting-out-preapproved-offers.html", priority: "MED" },
+  { name: "Epsilon",        category: "Data Aggregator",   optout: "https://www.epsilon.com/us/privacy-policy/data-optout", priority: "MED" },
+  { name: "CoreLogic",      category: "Background",        optout: "https://www.corelogic.com/privacy-consumer-opt-out/", priority: "MED" },
+  { name: "FastPeopleSearch", category: "People Search",   optout: "https://www.fastpeoplesearch.com/removal", priority: "MED" },
+  { name: "PublicRecordsNow", category: "Public Records",  optout: "https://www.publicrecordsnow.com/static/view/optout", priority: "MED" },
+  { name: "USSearch",       category: "People Search",     optout: "https://www.ussearch.com/opt-out/", priority: "MED" },
+  { name: "PeopleLooker",   category: "People Search",     optout: "https://www.peoplelooker.com/opt-out", priority: "MED" },
+  { name: "Pipl",           category: "B2B / Recruiter",   optout: "https://pipl.com/privacy/", priority: "MED" },
+  { name: "ClustrMaps",     category: "People Search",     optout: "https://clustrmaps.com/bl/opt-out", priority: "LOW" },
+  { name: "411.com",        category: "People Search",     optout: "https://www.411.com/privacy/request", priority: "LOW" },
+  { name: "AnyWho",         category: "People Search",     optout: "https://www.anywho.com/privacy", priority: "LOW" },
+  { name: "Addresses.com",  category: "People Search",     optout: "https://www.addresses.com/optout.php", priority: "LOW" },
+  { name: "Classmates",     category: "Social",            optout: "https://www.classmates.com/siteui/privacy/", priority: "LOW" },
+  { name: "CheckPeople",    category: "Background",        optout: "https://checkpeople.com/opt-out", priority: "LOW" },
+  { name: "PrivateEye",     category: "People Search",     optout: "https://www.privateeye.com/static/view/optout/", priority: "LOW" },
+  { name: "Xlek",           category: "People Search",     optout: "https://www.xlek.com/optout.php", priority: "LOW" },
+  { name: "Nuwber",         category: "People Search",     optout: "https://nuwber.com/removal/link", priority: "LOW" },
+  { name: "CyberBackgroundChecks", category: "Background", optout: "https://www.cyberbackgroundchecks.com/removal", priority: "LOW" },
+];
+
+// ── State ────────────────────────────────────────────────────────────────────
+let results = [];
+let activeFilter = 'all';
+let scanning = false;
+
+// ── Clock ────────────────────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ── Simulate scan (demo mode — real detection via Python script) ─────────────
+async function startScan() {
+  if (scanning) return;
+  const name  = document.getElementById('inp-name').value.trim();
+  const city  = document.getElementById('inp-city').value.trim();
+  if (!name || !city) {
+    alert('Enter at least your name and city to scan.');
+    return;
+  }
+
+  scanning = true;
+  results = [];
+  document.getElementById('scan-btn').disabled = true;
+  document.getElementById('scan-btn').textContent = '◼ Scanning...';
+  document.getElementById('progress-block').classList.add('active');
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('results-table').style.display = 'table';
+  document.getElementById('results-body').innerHTML = '';
+  document.getElementById('stat-total').textContent = BROKERS.length;
+  document.getElementById('stat-found').textContent = '0';
+  document.getElementById('stat-clean').textContent = '0';
+  const log = document.getElementById('prog-log');
+  log.innerHTML = '';
+
+  let found = 0, clean = 0;
+
+  for (let i = 0; i < BROKERS.length; i++) {
+    const broker = BROKERS[i];
+    const pct = Math.round(((i + 1) / BROKERS.length) * 100);
+    document.getElementById('prog-bar').style.width = pct + '%';
+    document.getElementById('prog-pct').textContent = pct + '%';
+    document.getElementById('prog-label').textContent = `Checking ${broker.name}...`;
+
+    // Simulate async check delay
+    await new Promise(r => setTimeout(r, 120 + Math.random() * 180));
+
+    // Demo: HIGH priority brokers have higher chance of "found"
+    const foundChance = broker.priority === 'HIGH' ? 0.65 : broker.priority === 'MED' ? 0.4 : 0.25;
+    const status = Math.random() < foundChance ? 'FOUND' : 'CLEAN';
+    const now = new Date().toLocaleTimeString('en-US', { hour12: false });
+
+    if (status === 'FOUND') {
+      found++;
+      log.innerHTML += `<div class="log-found">⚠ ${broker.name} — listing detected</div>`;
+    } else {
+      clean++;
+      log.innerHTML += `<div class="log-clean">✓ ${broker.name} — not listed</div>`;
+    }
+    log.scrollTop = log.scrollHeight;
+
+    document.getElementById('stat-found').textContent = found;
+    document.getElementById('stat-clean').textContent = clean;
+
+    results.push({ ...broker, status, checkedAt: now });
+    renderRow(results[results.length - 1]);
+  }
+
+  document.getElementById('prog-label').textContent = 'Scan complete';
+  document.getElementById('scan-btn').disabled = false;
+  document.getElementById('scan-btn').textContent = '↺ Re-scan';
+  scanning = false;
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function renderRow(r) {
+  if (activeFilter !== 'all' && r.status !== activeFilter) return;
+  const tbody = document.getElementById('results-body');
+  const tr = document.createElement('tr');
+  tr.dataset.status = r.status;
+  tr.dataset.name = r.name;
+  tr.innerHTML = `
+    <td class="td-broker">${r.name}</td>
+    <td class="td-category">${r.category}</td>
+    <td class="td-status">${badgeHTML(r.status)}</td>
+    <td class="td-optout"><a href="${r.optout}" target="_blank" rel="noopener">Opt-out ↗</a></td>
+    <td class="td-checked">${r.checkedAt}</td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function badgeHTML(status) {
+  const map = {
+    FOUND:   ['badge-found',   'EXPOSED'],
+    CLEAN:   ['badge-clean',   'CLEAN'],
+    PENDING: ['badge-pending', 'PENDING'],
+    ERROR:   ['badge-error',   'ERROR'],
+  };
+  const [cls, label] = map[status] || map.PENDING;
+  return `<span class="badge ${cls}"><span class="badge-dot"></span>${label}</span>`;
+}
+
+function rerenderTable() {
+  const tbody = document.getElementById('results-body');
+  tbody.innerHTML = '';
+  results.forEach(r => renderRow(r));
+}
+
+// ── Filter ───────────────────────────────────────────────────────────────────
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  rerenderTable();
+}
+
+// ── Export CSV ───────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!results.length) { alert('Run a scan first.'); return; }
+  const rows = [['Broker', 'Category', 'Status', 'Opt-Out URL', 'Checked At', 'Priority']];
+  results.forEach(r => rows.push([r.name, r.category, r.status, r.optout, r.checkedAt, r.priority]));
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `brokerscan_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
