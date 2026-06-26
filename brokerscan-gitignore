@@ -1,0 +1,11 @@
+# Local scan database — contains personal info, never commit
+brokerscan.db
+
+# Export files
+*.csv
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
